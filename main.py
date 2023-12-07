@@ -8,13 +8,16 @@ import gradio as gr
 
 from styling import theme
 
+TRAIN_MODEL = False
+
 def main(no_epochs):
     print('test')
-
+    
     mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=transforms.Compose([transforms.ToTensor()]))
     mnist_testset = datasets.MNIST(root='./data', train=False, download=True, transform=transforms.Compose([transforms.ToTensor()]))
 
     mnist_valset, mnist_testset = torch.utils.data.random_split(mnist_testset, [int(0.9 * len(mnist_testset)), int(0.1 * len(mnist_testset))])
+
 
     train_dataloader = torch.utils.data.DataLoader(mnist_trainset, batch_size=64, shuffle=True)
     val_dataloader = torch.utils.data.DataLoader(mnist_valset, batch_size=32, shuffle=False)
@@ -41,8 +44,6 @@ def main(no_epochs):
     if (torch.cuda.is_available()):
         model.cuda()
 
-    TRAIN_MODEL = False
-
     if TRAIN_MODEL:
         no_epochs = no_epochs
         train_loss = list()
@@ -52,7 +53,7 @@ def main(no_epochs):
             total_train_loss = 0
             total_val_loss = 0
         
-            model.train()
+            model.train()z
             # training
             for itr, (image, label) in enumerate(train_dataloader):
         
@@ -115,7 +116,9 @@ def main(no_epochs):
         plt.show()
 
     # test model
-    model.load_state_dict(torch.load("model_weights/model_cifar.dth", map_location=torch.device(('cuda' if torch.cuda.is_available() else 'cpu'))))
+    model.load_state_dict(torch.load(
+        "model_weights/model_cifar.dth", 
+        map_location=torch.device(('cuda' if torch.cuda.is_available() else 'cpu'))))
     model.eval()
 
     results = list()
@@ -137,6 +140,7 @@ def main(no_epochs):
     print('Test accuracy {:.8f}'.format(test_accuracy))
 
     print("Plotting Figure 3 =>")
+
     # visualize results
     fig2=plt.figure(figsize=(20, 10))
     for i in range(1, 11):
@@ -146,20 +150,53 @@ def main(no_epochs):
         plt.imshow(img)
     plt.show()
 
-    return test_accuracy, fig1, fig2
+    return str(test_accuracy)  + "%", fig1, fig2
+
+def settings(choice):
+    if choice == "True":
+        TRAIN_MODEL = True
+        train_model_true = gr.Slider(visible=True)
+        return train_model_true
+    else:
+        TRAIN_MODEL = False
+        train_model_false = gr.Slider(visible=False)
+        return train_model_false
 
 with gr.Blocks(theme=theme) as demo:
+    with gr.Column():
+        with gr.Row():
+            gr.Markdown("## MNIST Classifier")
+        with gr.Row():
+            with gr.Column():
+                with gr.Row():
+                    with gr.Column():
+                        train_model = gr.Radio(["True", "False"], visible=True, label="Train Model", value="False")
+                        no_epochs = gr.Slider(minimum=1, maximum=30, step=1, visible=False, default=1, value=1, label="Number of epochs")
+                        run_btn = gr.Button(text="Run")
+                    with gr.Column():
+                        gr.Markdown("## ")
+
     with gr.Row():
-        no_epochs = gr.Slider(minimum=1, maximum=30, step=1, default=1, label="Number of epochs")
-        run_btn = gr.Button(text="Run")
+        gr.Markdown("## Results")
     with gr.Row():        
         initial_plot = gr.Plot(title="Loss Plots", labels=["Epochs", "Loss"])
         results_plot = gr.Plot(title="Results", labels=["Image", "Label"])
         # image = gr.inputs.Image(shape=(28, 28))
         # label = gr.outputs.Label(num_top_classes=3)
+    with gr.Row():
         accuracy = gr.Textbox(label="Accuracy")
-    run_btn.click(fn=main, inputs=[no_epochs], outputs=[accuracy, initial_plot, results_plot])
+    
+    run_btn.click(
+        fn=main,
+        inputs=[no_epochs],
+        outputs=[accuracy,
+        initial_plot,
+        results_plot])
+    
+    train_model.change(
+        fn=settings, 
+        inputs=train_model, 
+        outputs=no_epochs)
+
 
 demo.launch()
-
-main()
