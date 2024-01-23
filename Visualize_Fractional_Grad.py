@@ -19,7 +19,7 @@ import math
 import pandas as pd
 from scipy.stats import spearmanr
 from scipy.linalg import toeplitz
-import differint.differint as df
+# import differint.differint as df
 from methods.plotting_functions import *
 from methods.Gradients import *
 from methods.Fractional_Gradients import *
@@ -76,7 +76,7 @@ class Args():
         self.N = 7
         self.dataset_names = ['MNIST', 'CIFAR10']
         # self.dataset = 0 # 'MNIST'
-        self.dataset_val = 1 # 'CIFAR10'
+        self.dataset_val = 0 # 'CIFAR10'
         
 if __name__ == '__main__':
     args = Args()
@@ -127,9 +127,10 @@ if __name__ == '__main__':
                         ]
         num_steps = 3
         alphas = [[start + (((end-start)/float(num_steps)) * i) for i in range(num_steps + 1)] for start, end in start_ends]
-        alpha_values = []
-        for i in range(len(alphas)):
-            alpha_values += alphas[i] 
+        # alpha_values = []
+        alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
+        # for i in range(len(alphas)):
+        #     alpha_values += alphas[i] 
         ########################################################################
         
         # alpha_values = [alpha_values[inx] + start_alpha for inx in range(len(alpha_values))]
@@ -262,7 +263,7 @@ if __name__ == '__main__':
             
             for i in range(1, min((3 + 1), len(grad_list))):
                 attrs.append(grad_list[i])
-                attribution_names.append(f"Deriv {i} Autograd")
+                attribution_names.append(f"Deriv {i}")
             if deriv_approx_integ:
                 for i in range(1, len(grad_est_list)):
                     attrs.append(grad_est_list[i])
@@ -273,7 +274,7 @@ if __name__ == '__main__':
             attribution_mapsRL_, attribution_mapsGL_ = list(), list()
             
             for _, alpha in enumerate(alpha_values):
-                print('Calculating ', str("Frac Grad a=" + str(alpha)))
+                print('Calculating ', str("a=" + str(alpha)))
                 if 'RL' in deriv_method_names:
                     frac_gradRL.append(FracGradApproxRL(img.clone().detach(), alpha, h, grad_list = grad_list))# zero_grad, first_grad_est, second_grad_est, third_grad_est))
                 if 'GL' in deriv_method_names:
@@ -281,7 +282,7 @@ if __name__ == '__main__':
                 # frac_gradGL.append(FracGradApproxGL(alpha = alpha))#, N = N))
                 # frac_gradGL.append(FracGrads.FracGradApproxGL(alpha = alpha))#, N = N))
                 
-                attribution_names.append(str("Frac Grad a=" + str(round_repeating_decimals(alpha, precision=8))))
+                attribution_names.append(str("a=" + str(round_repeating_decimals(alpha, precision=8))))
             
             if squared_maps:
                 for attr in attrs:
@@ -334,7 +335,7 @@ if __name__ == '__main__':
                 for j in range(len(attribution_maps[0])):
                     
                     attribution_map = attribution_maps[i][j][0].clone().detach().cpu()
-                    
+                    attribution_map *= 3.0
                     if gray_maps:
                         attribution_map = attribution_map[0][0] + attribution_map[0][1] + attribution_map[0][2]
                     
@@ -342,7 +343,7 @@ if __name__ == '__main__':
                     #                        'B': np.array(torch.flatten(attribution_map)).tolist()})
                     # rho1, p1 = spearmanr(df['A'], df['B'])
                     
-                    fig.add_subplot(length, width, (i * width) + j + 2).set_title(str(attribution_names[j]), rotation=90, x=-0.09, y=-0.18, loc='center')# + " RC: "+ str(round(rho1, 4))))
+                    fig.add_subplot(length, width, (i * width) + j + 2).set_title(str(attribution_names[j]), loc='center')# + " RC: "+ str(round(rho1, 4))))
                     imshow((VisualizeImageGrayscale(attribution_map))[0], cmap='RdBu')
                     plt.axis('off')
             
