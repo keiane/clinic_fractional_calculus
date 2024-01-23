@@ -30,11 +30,19 @@ for i in range(1, 6):
 plt.show()
 
 model = Model()
+if torch.cuda.is_available():
+    model.to(torch.device("cuda"))
+elif torch.backends.mps.is_available():
+    model.to(torch.device("mps"))
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-if (torch.cuda.is_available()):
-    model.cuda()
+if torch.cuda.is_available():
+    device = 'cuda'
+    #gr.Info("Cuda detected - running on Cuda")
+elif torch.backends.mps.is_available():
+    device = 'mps'
+    #gr.Info("MPS detected - running on Metal")
 
 TRAIN_MODEL = False
 
@@ -54,6 +62,9 @@ if TRAIN_MODEL:
             if (torch.cuda.is_available()):
                 image = image.cuda()
                 label = label.cuda()
+            elif (torch.backends.mps.is_available()):
+                image = image.to(torch.device("mps"))
+                label = label.to(torch.device("mps"))
             
             optimizer.zero_grad()
     
@@ -77,6 +88,9 @@ if TRAIN_MODEL:
             if (torch.cuda.is_available()):
                 image = image.cuda()
                 label = label.cuda()
+            elif (torch.backends.mps.is_available()):
+                image = image.to(torch.device("mps"))
+                label = label.to(torch.device("mps"))
     
             pred = model(image)
     
@@ -110,7 +124,12 @@ if TRAIN_MODEL:
     plt.show()
 
 # test model
-model.load_state_dict(torch.load("model_weights/model_cifar.dth"))
+if (torch.cuda.is_available()):
+    model.load_state_dict(torch.load("model_weights/model_cifar.dth", map_location=torch.device('cuda')))
+elif (torch.backends.mps.is_available()):
+    model.load_state_dict(torch.load("model_weights/model_cifar.dth", map_location=torch.device('mps')))
+else:
+    model.load_state_dict(torch.load("model_weights/model_cifar.dth", map_location=torch.device('cpu')))
 model.eval()
 
 results = list()
@@ -120,7 +139,10 @@ for itr, (image, label) in enumerate(test_dataloader):
     if (torch.cuda.is_available()):
         image = image.cuda()
         label = label.cuda()
-
+    elif (torch.backends.mps.is_available()):
+        image = image.to(torch.device("mps"))
+        label = label.to(torch.device("mps"))
+        
     pred = model(image)
 
     for i, p in enumerate(pred):
