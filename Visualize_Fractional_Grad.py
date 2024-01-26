@@ -25,6 +25,9 @@ from methods.Gradients import *
 from methods.Fractional_Gradients import *
 import random
 
+import gradio as gr
+from styling import theme
+
 from captum.attr import (
     InputXGradient,
     Saliency,
@@ -38,15 +41,6 @@ from captum.attr import (
     NoiseTunnel,
     GuidedBackprop,
 )
-
-def attribute_image_features(algorithm, input, **kwargs):
-    model_ft.zero_grad()
-    tensor_attributions = algorithm.attribute(input,
-                                              target=int(predicted_out[num]),
-                                              **kwargs
-                                             )
-    return tensor_attributions
-
 
     
 class Args():
@@ -77,8 +71,20 @@ class Args():
         self.dataset_names = ['MNIST', 'CIFAR10']
         # self.dataset = 0 # 'MNIST'
         self.dataset_val = 0 # 'CIFAR10'
-        
-if __name__ == '__main__':
+
+
+
+
+def test(alpha_slider):
+
+    def attribute_image_features(algorithm, input, **kwargs):
+        model_ft.zero_grad()
+        tensor_attributions = algorithm.attribute(input,
+                                                target=int(predicted_out[num]),
+                                                **kwargs
+                                                )
+        return tensor_attributions
+
     args = Args()
     ##############################################################################
     if args.dataset_val == 0:
@@ -109,7 +115,7 @@ if __name__ == '__main__':
     dataset_names = args.dataset_names
     dataset_val = args.dataset_val
     ##############################################################################
-    
+
     start_alpha = 0
     for start_alpha in range(1):
         
@@ -127,8 +133,9 @@ if __name__ == '__main__':
                         ]
         num_steps = 3
         alphas = [[start + (((end-start)/float(num_steps)) * i) for i in range(num_steps + 1)] for start, end in start_ends]
-        # alpha_values = []
-        alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
+        alpha_values = []
+        # alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
+        alpha_values = alpha_list # Slider
         # for i in range(len(alphas)):
         #     alpha_values += alphas[i] 
         ########################################################################
@@ -140,9 +147,9 @@ if __name__ == '__main__':
         else:
             device = torch.device('cpu')
         
-        if dataset_val == 0:
+        if dataset_val == 0: # if dataset_val is MNIST
             model_ft = Model()
-        if dataset_val == 1:
+        if dataset_val == 1: # if dataset_val is CIFAR10
             model_ft = torchvision.models.resnet18(pretrained=True)
             num_ftrs = model_ft.fc.in_features
             model_ft.fc = nn.Linear(num_ftrs, 10)
@@ -150,7 +157,7 @@ if __name__ == '__main__':
         
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model_ft.parameters(), lr=0.000005)
-    
+
         model_ft = model_ft.to(device)
         
         
@@ -158,13 +165,13 @@ if __name__ == '__main__':
             transforms.ToTensor()
         ])
         
-        if dataset_val == 0:
+        if dataset_val == 0: # if dataset_val is MNIST
             testset = datasets.MNIST(root='./data', 
                                     train=False, 
                                     download=True, 
                                     transform=transform_test
                                     )
-        if dataset_val == 1:
+        if dataset_val == 1: # if dataset_val is CIFAR10
             testset = datasets.CIFAR10(root='./data', 
                                     train=False, 
                                     download=True, 
@@ -187,7 +194,7 @@ if __name__ == '__main__':
         i_g = IntegratedGradients(model_ft)
         
         nt = NoiseTunnel(sa)
-    
+
         #Test
         result_images, predicted_out = list(), list()
         labels = list()
@@ -247,10 +254,10 @@ if __name__ == '__main__':
                 second_grad_est = FracGrads.returnDerivApprox(n=2)
                 third_grad_est = FracGrads.returnDerivApprox(n=3)
                 grad_est_list = [zero_grad, 
-                             first_grad_est, 
-                             second_grad_est, 
-                             third_grad_est, 
-                             ]
+                                first_grad_est, 
+                                second_grad_est, 
+                                third_grad_est, 
+                                ]
 
             attrs = [
                     # zero_grad_autograd, #zero_grad,
@@ -351,7 +358,42 @@ if __name__ == '__main__':
             if squared_maps:
                 fig_name = fig_name + "_sq"
             plt.savefig(fig_name + ".png")
-            plt.show()
-            plt.ioff()
-            
+            # plt.show()
+            # plt.ioff()
+        return fig
 
+with gr.Blocks() as functionApp:
+    with gr.Row():
+        gr.Markdown("# Fractional Calculus Web App")
+    with gr.Row():
+            gr.Markdown("## Inputs")
+    with gr.Column():
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("### Add Alpha Values to Dataset")
+            with gr.Column():
+                gr.Markdown("### Current Alphas")
+        with gr.Row():
+            with gr.Column():
+                alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=5, step=0.001)
+                add_btn= gr.Button(value="Add Alpha")
+            with gr.Column():
+                textbox = gr.Textbox()
+                alpha_dataset = gr.Dataset()
+        with gr.Row():
+            run_btn= gr.Button(value="Run")
+
+    with gr.Row():
+        gr.Markdown("## Results")
+    with gr.Row():
+        with gr.Column():
+            plot1 = gr.Plot(label="Attribution Map", )
+    run_btn.click(fn=test, inputs=[alpha_slider], outputs=[plot1])
+
+with gr.Blocks() as documentationApp:
+    with gr.Row():
+        gr.Markdown("# Fractional Calculus Documentation")
+
+### LAUNCH APP
+demo = gr.TabbedInterface([functionApp, documentationApp], ["Run Model", "Documentation"], theme=theme)
+demo.queue().launch()
