@@ -71,9 +71,9 @@ class Args():
         self.N = 7
         self.dataset_names = ['MNIST', 'CIFAR10']
         # self.dataset = 0 # 'MNIST'
-        self.dataset_val = 0 # 'CIFAR10'
+        # self.dataset_val = 0 # 'CIFAR10'
 
-def test(samples):
+def test(samples, database):
 
     def attribute_image_features(algorithm, input, **kwargs):
         model_ft.zero_grad()
@@ -85,9 +85,9 @@ def test(samples):
 
     args = Args()
     ##############################################################################
-    if args.dataset_val == 0:
+    if database == "MNIST":
         model_path = args.mnist_model
-    if args.dataset_val == 1:
+    if database == "CIFAR10":
         model_path = args.cifar_model
     # model_path = args.loadModel
     deriv_method_names = args.deriv_method_names
@@ -111,7 +111,7 @@ def test(samples):
     sample_index = random.sample(range(set_size), nsamples)
     N = args.N
     dataset_names = args.dataset_names
-    dataset_val = args.dataset_val
+    dataset_val = database
     ##############################################################################
 
     start_alpha = 0
@@ -145,9 +145,9 @@ def test(samples):
         else:
             device = torch.device('cpu')
         
-        if dataset_val == 0: # if dataset_val is MNIST
+        if dataset_val == "MNIST": # if dataset_val is MNIST
             model_ft = Model()
-        if dataset_val == 1: # if dataset_val is CIFAR10
+        if dataset_val == "CIFAR10": # if dataset_val is CIFAR10
             model_ft = torchvision.models.resnet18(pretrained=True)
             num_ftrs = model_ft.fc.in_features
             model_ft.fc = nn.Linear(num_ftrs, 10)
@@ -163,13 +163,13 @@ def test(samples):
             transforms.ToTensor()
         ])
         
-        if dataset_val == 0: # if dataset_val is MNIST
+        if dataset_val == "MNIST": # if dataset_val is MNIST
             testset = datasets.MNIST(root='./data', 
                                     train=False, 
                                     download=True, 
                                     transform=transform_test
                                     )
-        if dataset_val == 1: # if dataset_val is CIFAR10
+        if dataset_val == "CIFAR10": # if dataset_val is CIFAR10
             testset = datasets.CIFAR10(root='./data', 
                                     train=False, 
                                     download=True, 
@@ -383,7 +383,8 @@ with gr.Blocks() as functionApp:
         with gr.Row():
             with gr.Column():
                 alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=4, step=0.001)
-                add_btn= gr.Button(value="Add Alpha")
+                add_btn = gr.Button(value="Add Alpha")
+                database = gr.Radio(choices=["MNIST", "CIFAR10"], label="Choose a Database", value="MNIST")
             with gr.Column():
                 ds = gr.Dataset(components=['number'], type='index', headers=['Alpha'], samples=a, label="Alpha Values")
         with gr.Row():
@@ -396,7 +397,7 @@ with gr.Blocks() as functionApp:
             plot1 = gr.Plot(label="RL Attribution Map")
 
     add_btn.click(fn=add_to_dataset, inputs=[alpha_slider, samples], outputs=[ds, samples])
-    run_btn.click(fn=test, inputs=[samples], outputs=[plot1])
+    run_btn.click(fn=test, inputs=[samples, database], outputs=[plot1])
 
 with gr.Blocks() as documentationApp:
     with gr.Row():
