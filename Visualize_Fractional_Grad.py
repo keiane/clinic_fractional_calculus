@@ -73,9 +73,6 @@ class Args():
         # self.dataset = 0 # 'MNIST'
         self.dataset_val = 0 # 'CIFAR10'
 
-
-
-
 def test(alpha_slider):
 
     def attribute_image_features(algorithm, input, **kwargs):
@@ -363,7 +360,16 @@ def test(alpha_slider):
             # plt.ioff()
         return fig
 
+def add_to_dataset(slider_input, samples):
+    samples.append([slider_input])
+    print(samples)
+    return samples, samples
+
+a = []
+
 with gr.Blocks() as functionApp:
+    samples = gr.State(a)
+
     with gr.Row():
         gr.Markdown("# Fractional Calculus Web App")
     with gr.Row():
@@ -379,7 +385,7 @@ with gr.Blocks() as functionApp:
                 alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=5, step=0.001)
                 add_btn= gr.Button(value="Add Alpha")
             with gr.Column():
-                textbox = gr.Textbox()
+                ds = gr.Dataset(components=['number'], type='index', headers=['Alpha'], samples=a, label="Alpha Values")
         with gr.Row():
             run_btn= gr.Button(value="Run")
 
@@ -388,7 +394,9 @@ with gr.Blocks() as functionApp:
     with gr.Row():
         with gr.Column():
             plot1 = gr.Plot(label="RL Attribution Map")
+
     run_btn.click(fn=test, inputs=[alpha_slider], outputs=[plot1])
+    add_btn.click(fn=add_to_dataset, inputs=[alpha_slider, samples], outputs=[ds, samples])
 
 with gr.Blocks() as documentationApp:
     with gr.Row():
