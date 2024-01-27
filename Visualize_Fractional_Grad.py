@@ -73,7 +73,7 @@ class Args():
         # self.dataset = 0 # 'MNIST'
         self.dataset_val = 0 # 'CIFAR10'
 
-def test(alpha_slider):
+def test(samples):
 
     def attribute_image_features(algorithm, input, **kwargs):
         model_ft.zero_grad()
@@ -133,7 +133,7 @@ def test(alpha_slider):
         alphas = [[start + (((end-start)/float(num_steps)) * i) for i in range(num_steps + 1)] for start, end in start_ends]
         alpha_values = []
         # alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
-        alpha_values.append(alpha_slider) # Slider
+        alpha_values = [sample[0] for sample in samples] # Slider
         # for i in range(len(alphas)):
         #     alpha_values += alphas[i] 
         ########################################################################
@@ -382,7 +382,7 @@ with gr.Blocks() as functionApp:
                 gr.Markdown("### Current Alphas")
         with gr.Row():
             with gr.Column():
-                alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=5, step=0.001)
+                alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=4, step=0.001)
                 add_btn= gr.Button(value="Add Alpha")
             with gr.Column():
                 ds = gr.Dataset(components=['number'], type='index', headers=['Alpha'], samples=a, label="Alpha Values")
@@ -395,8 +395,8 @@ with gr.Blocks() as functionApp:
         with gr.Column():
             plot1 = gr.Plot(label="RL Attribution Map")
 
-    run_btn.click(fn=test, inputs=[alpha_slider], outputs=[plot1])
     add_btn.click(fn=add_to_dataset, inputs=[alpha_slider, samples], outputs=[ds, samples])
+    run_btn.click(fn=test, inputs=[samples], outputs=[plot1])
 
 with gr.Blocks() as documentationApp:
     with gr.Row():
