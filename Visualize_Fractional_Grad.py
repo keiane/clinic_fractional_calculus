@@ -27,7 +27,6 @@ import random
 
 import gradio as gr
 from styling import theme
-from hypertext import *
 
 from captum.attr import (
     InputXGradient,
@@ -133,7 +132,7 @@ def test(samples, database):
         alphas = [[start + (((end-start)/float(num_steps)) * i) for i in range(num_steps + 1)] for start, end in start_ends]
         alpha_values = []
         # alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
-        alpha_values = [sample[0] for sample in samples] # Slider
+        alpha_values = sorted([sample[0] for sample in samples]) # Slider
         # for i in range(len(alphas)):
         #     alpha_values += alphas[i] 
         ########################################################################
@@ -399,15 +398,12 @@ with gr.Blocks() as functionApp:
     add_btn.click(fn=add_to_dataset, inputs=[alpha_slider, samples], outputs=[ds, samples])
     run_btn.click(fn=test, inputs=[samples, database], outputs=[plot1])
 
+markdown_file_path = 'documentation.md'
+with open(markdown_file_path, 'r') as file:
+    markdown_content = file.read()
 with gr.Blocks() as documentationApp:
     with gr.Row():
-        gr.Markdown("# Fractional Calculus Documentation")
-    with gr.Row():
-        gr.Markdown("## Instructions")
-    with gr.Row():
-        gr.Markdown("## Authors and Repository")
-    with gr.Row():
-        html = gr.HTML(value=github_tag)
+        gr.Markdown(markdown_content)
 
 ### LAUNCH APP
 demo = gr.TabbedInterface([functionApp, documentationApp], ["Run Model", "Documentation"], theme=theme)
