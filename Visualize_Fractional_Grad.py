@@ -19,14 +19,11 @@ import math
 import pandas as pd
 from scipy.stats import spearmanr
 from scipy.linalg import toeplitz
-# import differint.differint as df
+import differint.differint as df
 from methods.plotting_functions import *
 from methods.Gradients import *
 from methods.Fractional_Gradients import *
 import random
-
-import gradio as gr
-from styling import theme
 
 from captum.attr import (
     InputXGradient,
@@ -41,6 +38,15 @@ from captum.attr import (
     NoiseTunnel,
     GuidedBackprop,
 )
+
+def attribute_image_features(algorithm, input, **kwargs):
+    model_ft.zero_grad()
+    tensor_attributions = algorithm.attribute(input,
+                                              target=int(predicted_out[num]),
+                                              **kwargs
+                                             )
+    return tensor_attributions
+
 
     
 class Args():
@@ -70,23 +76,14 @@ class Args():
         self.N = 7
         self.dataset_names = ['MNIST', 'CIFAR10']
         # self.dataset = 0 # 'MNIST'
-        # self.dataset_val = 0 # 'CIFAR10'
-
-def test(samples, database):
-
-    def attribute_image_features(algorithm, input, **kwargs):
-        model_ft.zero_grad()
-        tensor_attributions = algorithm.attribute(input,
-                                                target=int(predicted_out[num]),
-                                                **kwargs
-                                                )
-        return tensor_attributions
-
+        self.dataset_val = 1 # 'CIFAR10'
+        
+if __name__ == '__main__':
     args = Args()
     ##############################################################################
-    if database == "MNIST":
+    if args.dataset_val == 0:
         model_path = args.mnist_model
-    if database == "CIFAR10":
+    if args.dataset_val == 1:
         model_path = args.cifar_model
     # model_path = args.loadModel
     deriv_method_names = args.deriv_method_names
@@ -110,9 +107,9 @@ def test(samples, database):
     sample_index = random.sample(range(set_size), nsamples)
     N = args.N
     dataset_names = args.dataset_names
-    dataset_val = database
+    dataset_val = args.dataset_val
     ##############################################################################
-
+    
     start_alpha = 0
     for start_alpha in range(1):
         
@@ -131,10 +128,8 @@ def test(samples, database):
         num_steps = 3
         alphas = [[start + (((end-start)/float(num_steps)) * i) for i in range(num_steps + 1)] for start, end in start_ends]
         alpha_values = []
-        # alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
-        alpha_values = sorted([sample[0] for sample in samples]) # Slider
-        # for i in range(len(alphas)):
-        #     alpha_values += alphas[i] 
+        for i in range(len(alphas)):
+            alpha_values += alphas[i] 
         ########################################################################
         
         # alpha_values = [alpha_values[inx] + start_alpha for inx in range(len(alpha_values))]
@@ -144,9 +139,9 @@ def test(samples, database):
         else:
             device = torch.device('cpu')
         
-        if dataset_val == "MNIST": # if dataset_val is MNIST
+        if dataset_val == 0:
             model_ft = Model()
-        if dataset_val == "CIFAR10": # if dataset_val is CIFAR10
+        if dataset_val == 1:
             model_ft = torchvision.models.resnet18(pretrained=True)
             num_ftrs = model_ft.fc.in_features
             model_ft.fc = nn.Linear(num_ftrs, 10)
@@ -154,7 +149,7 @@ def test(samples, database):
         
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model_ft.parameters(), lr=0.000005)
-
+    
         model_ft = model_ft.to(device)
         
         
@@ -162,13 +157,13 @@ def test(samples, database):
             transforms.ToTensor()
         ])
         
-        if dataset_val == "MNIST": # if dataset_val is MNIST
+        if dataset_val == 0:
             testset = datasets.MNIST(root='./data', 
                                     train=False, 
                                     download=True, 
                                     transform=transform_test
                                     )
-        if dataset_val == "CIFAR10": # if dataset_val is CIFAR10
+        if dataset_val == 1:
             testset = datasets.CIFAR10(root='./data', 
                                     train=False, 
                                     download=True, 
@@ -191,7 +186,7 @@ def test(samples, database):
         i_g = IntegratedGradients(model_ft)
         
         nt = NoiseTunnel(sa)
-
+    
         #Test
         result_images, predicted_out = list(), list()
         labels = list()
@@ -251,10 +246,10 @@ def test(samples, database):
                 second_grad_est = FracGrads.returnDerivApprox(n=2)
                 third_grad_est = FracGrads.returnDerivApprox(n=3)
                 grad_est_list = [zero_grad, 
-                                first_grad_est, 
-                                second_grad_est, 
-                                third_grad_est, 
-                                ]
+                             first_grad_est, 
+                             second_grad_est, 
+                             third_grad_est, 
+                             ]
 
             attrs = [
                     # zero_grad_autograd, #zero_grad,
@@ -267,7 +262,7 @@ def test(samples, database):
             
             for i in range(1, min((3 + 1), len(grad_list))):
                 attrs.append(grad_list[i])
-                attribution_names.append(f"Deriv {i}")
+                attribution_names.append(f"Deriv {i} Autograd")
             if deriv_approx_integ:
                 for i in range(1, len(grad_est_list)):
                     attrs.append(grad_est_list[i])
@@ -278,7 +273,7 @@ def test(samples, database):
             attribution_mapsRL_, attribution_mapsGL_ = list(), list()
             
             for _, alpha in enumerate(alpha_values):
-                print('Calculating ', str("a=" + str(alpha)))
+                print('Calculating ', str("Frac Grad a=" + str(alpha)))
                 if 'RL' in deriv_method_names:
                     frac_gradRL.append(FracGradApproxRL(img.clone().detach(), alpha, h, grad_list = grad_list))# zero_grad, first_grad_est, second_grad_est, third_grad_est))
                 if 'GL' in deriv_method_names:
@@ -286,7 +281,7 @@ def test(samples, database):
                 # frac_gradGL.append(FracGradApproxGL(alpha = alpha))#, N = N))
                 # frac_gradGL.append(FracGrads.FracGradApproxGL(alpha = alpha))#, N = N))
                 
-                attribution_names.append(str("a=" + str(round_repeating_decimals(alpha, precision=8))))
+                attribution_names.append(str("Frac Grad a=" + str(round_repeating_decimals(alpha, precision=8))))
             
             if squared_maps:
                 for attr in attrs:
@@ -339,7 +334,7 @@ def test(samples, database):
                 for j in range(len(attribution_maps[0])):
                     
                     attribution_map = attribution_maps[i][j][0].clone().detach().cpu()
-                    attribution_map *= 3.0
+                    
                     if gray_maps:
                         attribution_map = attribution_map[0][0] + attribution_map[0][1] + attribution_map[0][2]
                     
@@ -347,7 +342,7 @@ def test(samples, database):
                     #                        'B': np.array(torch.flatten(attribution_map)).tolist()})
                     # rho1, p1 = spearmanr(df['A'], df['B'])
                     
-                    fig.add_subplot(length, width, (i * width) + j + 2).set_title(str(attribution_names[j]), loc='center')# + " RC: "+ str(round(rho1, 4))))
+                    fig.add_subplot(length, width, (i * width) + j + 2).set_title(str(attribution_names[j]), rotation=90, x=-0.09, y=-0.18, loc='center')# + " RC: "+ str(round(rho1, 4))))
                     imshow((VisualizeImageGrayscale(attribution_map))[0], cmap='RdBu')
                     plt.axis('off')
             
@@ -355,56 +350,7 @@ def test(samples, database):
             if squared_maps:
                 fig_name = fig_name + "_sq"
             plt.savefig(fig_name + ".png")
-            # plt.show()
-            # plt.ioff()
-        return fig
+            plt.show()
+            plt.ioff()
+            
 
-def add_to_dataset(slider_input, samples):
-    samples.append([slider_input])
-    print(samples)
-    return samples, samples
-
-a = []
-
-with gr.Blocks() as functionApp:
-    samples = gr.State(a)
-
-    with gr.Row():
-        gr.Markdown("# Fractional Calculus Web App")
-    with gr.Row():
-            gr.Markdown("## Inputs")
-    with gr.Column():
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("### Add Alpha Values to Dataset")
-            with gr.Column():
-                gr.Markdown("### Current Alphas")
-        with gr.Row():
-            with gr.Column():
-                alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=4, step=0.001)
-                add_btn = gr.Button(value="Add Alpha")
-                database = gr.Radio(choices=["MNIST", "CIFAR10"], label="Choose a Database", value="MNIST")
-            with gr.Column():
-                ds = gr.Dataset(components=['number'], type='index', headers=['Alpha'], samples=a, label="Alpha Values")
-        with gr.Row():
-            run_btn= gr.Button(value="Run")
-
-    with gr.Row():
-        gr.Markdown("## Results")
-    with gr.Row():
-        with gr.Column():
-            plot1 = gr.Plot(label="RL Attribution Map")
-
-    add_btn.click(fn=add_to_dataset, inputs=[alpha_slider, samples], outputs=[ds, samples])
-    run_btn.click(fn=test, inputs=[samples, database], outputs=[plot1])
-
-markdown_file_path = 'documentation.md'
-with open(markdown_file_path, 'r') as file:
-    markdown_content = file.read()
-with gr.Blocks() as documentationApp:
-    with gr.Row():
-        gr.Markdown(markdown_content)
-
-### LAUNCH APP
-demo = gr.TabbedInterface([functionApp, documentationApp], ["Run Model", "Documentation"], theme=theme)
-demo.queue().launch()
