@@ -371,16 +371,15 @@ with gr.Blocks() as functionApp:
             with gr.Column():
                 alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=4, step=0.001)
                 database = gr.Radio(choices=["MNIST", "CIFAR10"], label="Choose a Database", value="MNIST")
-            with gr.Row():
-                run_btn= gr.Button(value="Run")
 
     with gr.Row():
         gr.Markdown("## Results")
     with gr.Row():
         with gr.Column():
             plot1 = gr.Plot(label="RL Attribution Map")
+        
+    alpha_slider.change(fn=test, inputs=[database, alpha_slider], outputs=[plot1])
 
-    run_btn.click(fn=test, inputs=[database, alpha_slider], outputs=[plot1])
 
 markdown_file_path = 'documentation.md'
 with open(markdown_file_path, 'r') as file:
