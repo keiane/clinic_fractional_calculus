@@ -72,7 +72,7 @@ class Args():
         # self.dataset = 0 # 'MNIST'
         # self.dataset_val = 0 # 'CIFAR10'
 
-def test(samples, database):
+def test(database, alpha_slider):
 
     def attribute_image_features(algorithm, input, **kwargs):
         model_ft.zero_grad()
@@ -132,7 +132,8 @@ def test(samples, database):
         alphas = [[start + (((end-start)/float(num_steps)) * i) for i in range(num_steps + 1)] for start, end in start_ends]
         alpha_values = []
         # alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
-        alpha_values = sorted([sample[0] for sample in samples]) # Slider
+        ## alpha_values = sorted([sample[0] for sample in samples]) # Slider
+        alpha_values.append(alpha_slider)
         # for i in range(len(alphas)):
         #     alpha_values += alphas[i] 
         ########################################################################
@@ -359,15 +360,7 @@ def test(samples, database):
             # plt.ioff()
         return fig
 
-def add_to_dataset(slider_input, samples):
-    samples.append([slider_input])
-    print(samples)
-    return samples, samples
-
-a = []
-
 with gr.Blocks() as functionApp:
-    samples = gr.State(a)
 
     with gr.Row():
         gr.Markdown("# Fractional Calculus Web App")
@@ -376,18 +369,10 @@ with gr.Blocks() as functionApp:
     with gr.Column():
         with gr.Row():
             with gr.Column():
-                gr.Markdown("### Add Alpha Values to Dataset")
-            with gr.Column():
-                gr.Markdown("### Current Alphas")
-        with gr.Row():
-            with gr.Column():
                 alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=4, step=0.001)
-                add_btn = gr.Button(value="Add Alpha")
                 database = gr.Radio(choices=["MNIST", "CIFAR10"], label="Choose a Database", value="MNIST")
-            with gr.Column():
-                ds = gr.Dataset(components=['number'], type='index', headers=['Alpha'], samples=a, label="Alpha Values")
-        with gr.Row():
-            run_btn= gr.Button(value="Run")
+            with gr.Row():
+                run_btn= gr.Button(value="Run")
 
     with gr.Row():
         gr.Markdown("## Results")
@@ -395,8 +380,7 @@ with gr.Blocks() as functionApp:
         with gr.Column():
             plot1 = gr.Plot(label="RL Attribution Map")
 
-    add_btn.click(fn=add_to_dataset, inputs=[alpha_slider, samples], outputs=[ds, samples])
-    run_btn.click(fn=test, inputs=[samples, database], outputs=[plot1])
+    run_btn.click(fn=test, inputs=[database, alpha_slider], outputs=[plot1])
 
 markdown_file_path = 'documentation.md'
 with open(markdown_file_path, 'r') as file:
