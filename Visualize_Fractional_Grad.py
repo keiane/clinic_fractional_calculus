@@ -11,6 +11,7 @@ import torchvision
 import torchvision.datasets as datasets
 import torch.utils.data as data
 import torchvision.transforms as transforms
+from torchvision.utils import save_image
 import torchvision.models as models
 import numpy as np
 from methods.Integrated_Gradients import integrated_gradients
@@ -27,6 +28,7 @@ import random
 
 import gradio as gr
 from styling import theme
+from hypertext import htext
 
 from captum.attr import (
     InputXGradient,
@@ -50,7 +52,7 @@ class Args():
         self.mnist_model = './model_weights/model_mnist_baseline.dth'
         # TO RUN RL AND GL, UNCOMMENT THE LINE BELOW, OTHERWISE ONLY INCLUDE 'RL' OR 'GL' IN LIST
         # self.deriv_method_names = ['RL', 'GL']
-        self.deriv_method_names = ['RL',]
+        self.deriv_method_names = ['RL']
         self.deriv_approx_integ = False # If true, calulates the numerical approximation of the integer order derivatives
 #        self.loadModel = ''
         self.cuda = False
@@ -67,10 +69,12 @@ class Args():
         self.set_size = 50
         self.h = 0.00001
         self.alpha = 0.00000001
-        self.N = 7
+        self.N = 1 #original value 7
         self.dataset_names = ['MNIST', 'CIFAR10']
         # self.dataset = 0 # 'MNIST'
         # self.dataset_val = 0 # 'CIFAR10'
+img_labels = []
+img_list = []
 
 def test(database, alpha_slider):
 
@@ -133,7 +137,7 @@ def test(database, alpha_slider):
         alpha_values = []
         # alpha_values = [0.999, 1.5, 2.001, 2.5, 3.001] # Slider
         ## alpha_values = sorted([sample[0] for sample in samples]) # Slider
-        alpha_values.append(alpha_slider)
+        alpha_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         # for i in range(len(alphas)):
         #     alpha_values += alphas[i] 
         ########################################################################
@@ -192,10 +196,11 @@ def test(database, alpha_slider):
         i_g = IntegratedGradients(model_ft)
         
         nt = NoiseTunnel(sa)
-
         #Test
         result_images, predicted_out = list(), list()
         labels = list()
+        
+        # Iterate through the test dataset
         for itr, (image, label) in enumerate(test_dataloader):
             
             image, label = image.to(device), label.to(device)
@@ -241,7 +246,7 @@ def test(database, alpha_slider):
                         ]
             
             for i_n in range(len(grad_list), N + 1):
-                print('Estimating Grad Order: ', str(i_n), end="\r")
+                print('Estimating Grad Order: ', str(i_n), end="\n")
                 # grad_list.append(FracGrads.returnDerivApprox(n=i_n))
                 # grad_list.append(returnHigherOrderDeriv(img, model_ft, n=i_n, index=labels[num][0], device = device))
                 grad_list.append(grads.returnHigherOrderDeriv(img, n=i_n, index=labels[num][0], device = device))
@@ -286,7 +291,6 @@ def test(database, alpha_slider):
                     frac_gradGL.append(FracGradApproxGL(img.clone().detach(), alpha, h, model_ft, index=predicted_out[num], rightHand = rightHand, N = N))#=None))#
                 # frac_gradGL.append(FracGradApproxGL(alpha = alpha))#, N = N))
                 # frac_gradGL.append(FracGrads.FracGradApproxGL(alpha = alpha))#, N = N))
-                
                 attribution_names.append(str("a=" + str(round_repeating_decimals(alpha, precision=8))))
             
             if squared_maps:
@@ -314,17 +318,23 @@ def test(database, alpha_slider):
             
             attribution_mapsRL.append(attribution_mapsRL_)
             attribution_mapsGL.append(attribution_mapsGL_)
-            images.append(img)
+            images.append(img) # PREDICTION IMAGES
             preds.append(int(predicted_out[num]))
         
         plt.ioff()
         att_maps = []
+        
         if 'RL' in deriv_method_names:
             att_maps.append(attribution_mapsRL)
         if 'GL' in deriv_method_names:
             att_maps.append(attribution_mapsGL)
+
+
+        # for x,alpha in enumerate(alpha_values):
+        # save_image(att_maps[0][2][0][0][0][0], f'gradio_out/plot{0.1}.png')
+        # print(f"LENGTH: {len(att_maps)}")
+
         for i_fig, attribution_maps in enumerate(att_maps):
-            # print(i_fig)
             m = 1
             scale = 1.5
             length, width = int(nsamples), int((len(attrs)+1) + len(alpha_values))#(len(attribution_maps) + 1)
@@ -332,13 +342,14 @@ def test(database, alpha_slider):
             plt.title(deriv_method_names[i_fig])
         
             for i in range(nsamples): # len(attribution_maps) = nsamples
-                
+                print(f"i: {i}") # The number of rows in the plot
                 fig.add_subplot(length, width, (i * width) + 1).set_title(str("pred:" + str(preds[i])))
+                print(f"Created pred: {preds[i]}")
                 imshow((VisualizeImageGrayscale(images[i][0].clone().detach().cpu())))
                 plt.axis('off')
         
                 for j in range(len(attribution_maps[0])):
-                    
+                    # print(f"j:{j}\nattribution_maps[0]: {len(attribution_maps[0])}")
                     attribution_map = attribution_maps[i][j][0].clone().detach().cpu()
                     attribution_map *= 3.0
                     if gray_maps:
@@ -348,38 +359,45 @@ def test(database, alpha_slider):
                     #                        'B': np.array(torch.flatten(attribution_map)).tolist()})
                     # rho1, p1 = spearmanr(df['A'], df['B'])
                     
-                    fig.add_subplot(length, width, (i * width) + j + 2).set_title(str(attribution_names[j]), loc='center')# + " RC: "+ str(round(rho1, 4))))
+                    maps = fig.add_subplot(length, width, (i * width) + j + 2).set_title(str(attribution_names[j]), loc='center')# + " RC: "+ str(round(rho1, 4))))
+                    
+                    extent = maps.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+                    fig.savefig(f'gradio_out/pred{preds[i]}_plot{(attribution_names[j]).strip("a=()Deriv").strip()}.png', bbox_inches=extent.expanded(2, 5))
+                    print(f"Added {attribution_names[j]}")
                     imshow((VisualizeImageGrayscale(attribution_map))[0], cmap='RdBu')
                     plt.axis('off')
-            
+                    
+
             fig_name = str("figures/saliency_MNIST_" + str(deriv_method_names[i_fig]) + 'start-alpha-' + str(start_alpha) + '_samples-' + str(sample_index))
             if squared_maps:
                 fig_name = fig_name + "_sq"
             plt.savefig(fig_name + ".png")
             # plt.show()
             # plt.ioff()
-        return fig
+    return fig
 
 with gr.Blocks() as functionApp:
 
     with gr.Row():
-        gr.Markdown("# Fractional Calculus Web App")
+        gr.Markdown("# Riemann-Liouville Attribution Map Visualization")
     with gr.Row():
             gr.Markdown("## Inputs")
     with gr.Column():
         with gr.Row():
             with gr.Column():
-                alpha_slider = gr.Slider(label="Alpha", minimum=0.001, maximum=4, step=0.001)
+                alpha_slider = gr.Slider(label="Alpha", minimum=0.1, maximum=0.9, step=0.1)
                 database = gr.Radio(choices=["MNIST", "CIFAR10"], label="Choose a Database", value="MNIST")
 
     with gr.Row():
         gr.Markdown("## Results")
     with gr.Row():
         with gr.Column():
-            plot1 = gr.Plot(label="RL Attribution Map")
-        
+            plot1 = gr.Plot(label="Predictions")
+            #gallery = gr.Gallery(value=img_list, visible=True)
     alpha_slider.change(fn=test, inputs=[database, alpha_slider], outputs=[plot1])
 
+with gr.Blocks() as creatorsApp:
+    gr.HTML(htext)
 
 markdown_file_path = 'documentation.md'
 with open(markdown_file_path, 'r') as file:
@@ -389,5 +407,5 @@ with gr.Blocks() as documentationApp:
         gr.Markdown(markdown_content)
 
 ### LAUNCH APP
-demo = gr.TabbedInterface([functionApp, documentationApp], ["Run Model", "Documentation"], theme=theme)
-demo.queue().launch()
+demo = gr.TabbedInterface([functionApp, documentationApp, creatorsApp], ["Run Model", "Documentation", "Creators"], theme=theme)
+demo.queue().launch(allowed_paths=["file/creators/keiane.png", "file/creators/henry.jpg", "file/creators/ethan.jpg", "file/creators/evelyn.jpg", "file/creators/matt.jpg", "file/creaotrs/luke.jpg"])
